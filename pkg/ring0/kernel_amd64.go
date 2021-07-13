@@ -22,6 +22,7 @@ import (
 	"reflect"
 	"sync"
 
+	"gvisor.dev/gvisor/pkg/cpuid"
 	"gvisor.dev/gvisor/pkg/hostarch"
 	"gvisor.dev/gvisor/pkg/sentry/arch"
 )
@@ -262,14 +263,20 @@ func (c *CPU) SwitchToUser(switchOpts SwitchOpts) (vector Vector) {
 }
 
 var (
-	sentryXCR0     uintptr
-	sentryXCR0Once sync.Once
+	sentryXCR0        uintptr
+	xgetbvIsSupported bool
+	sentryXCR0Once    sync.Once
 )
 
 // initSentryXCR0 saves a value of XCR0 in the host mode. It is used to
 // initialize XCR0 of guest vCPU-s.
 func initSentryXCR0() {
-	sentryXCR0Once.Do(func() { sentryXCR0 = xgetbv(0) })
+	sentryXCR0Once.Do(func() {
+		if cpuid.HostFeatureSet().HasFeature(cpuid.X86FeatureXGETBV1) {
+			sentryXCR0 = xgetbv(0)
+			xgetbvIsSupported = true
+		}
+	})
 }
 
 // startGo is the CPU entrypoint.
@@ -298,7 +305,9 @@ func startGo(c *CPU) {
 	fninit()
 	// Need to sync XCR0 with the host, because xsave and xrstor can be
 	// called from different contexts.
-	xsetbv(0, sentryXCR0)
+	if xgetbvIsSupported {
+		xsetbv(0, sentryXCR0)
+	}
 
 	// Set the syscall target.
 	wrmsr(_MSR_LSTAR, kernelFunc(addrOfSysenter()))
