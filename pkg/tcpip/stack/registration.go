@@ -457,7 +457,7 @@ type AddressableEndpoint interface {
 	// Returns *tcpip.ErrDuplicateAddress if the address exists.
 	//
 	// Acquires and returns the AddressEndpoint for the added address.
-	AddAndAcquirePermanentAddress(addr tcpip.AddressWithPrefix, peb PrimaryEndpointBehavior, configType AddressConfigType, deprecated bool) (AddressEndpoint, tcpip.Error)
+	AddAndAcquirePermanentAddress(addr tcpip.AddressWithPrefix, peb PrimaryEndpointBehavior, configType AddressConfigType, deprecated bool, preferredLifetime, validLifetime *time.Duration) (AddressEndpoint, tcpip.Error)
 
 	// RemovePermanentAddress removes the passed address if it is a permanent
 	// address.

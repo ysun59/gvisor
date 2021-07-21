@@ -1627,12 +1627,12 @@ func (e *endpoint) NetworkProtocolNumber() tcpip.NetworkProtocolNumber {
 }
 
 // AddAndAcquirePermanentAddress implements stack.AddressableEndpoint.
-func (e *endpoint) AddAndAcquirePermanentAddress(addr tcpip.AddressWithPrefix, peb stack.PrimaryEndpointBehavior, configType stack.AddressConfigType, deprecated bool) (stack.AddressEndpoint, tcpip.Error) {
+func (e *endpoint) AddAndAcquirePermanentAddress(addr tcpip.AddressWithPrefix, peb stack.PrimaryEndpointBehavior, configType stack.AddressConfigType, deprecated bool, preferredLifetime, validLifetime *time.Duration) (stack.AddressEndpoint, tcpip.Error) {
 	// TODO(b/169350103): add checks here after making sure we no longer receive
 	// an empty address.
 	e.mu.Lock()
 	defer e.mu.Unlock()
-	return e.addAndAcquirePermanentAddressLocked(addr, peb, configType, deprecated)
+	return e.addAndAcquirePermanentAddressLocked(addr, peb, configType, deprecated, preferredLifetime, validLifetime)
 }
 
 // addAndAcquirePermanentAddressLocked is like AddAndAcquirePermanentAddress but
@@ -1642,8 +1642,8 @@ func (e *endpoint) AddAndAcquirePermanentAddress(addr tcpip.AddressWithPrefix, p
 // solicited-node multicast group and start duplicate address detection.
 //
 // Precondition: e.mu must be write locked.
-func (e *endpoint) addAndAcquirePermanentAddressLocked(addr tcpip.AddressWithPrefix, peb stack.PrimaryEndpointBehavior, configType stack.AddressConfigType, deprecated bool) (stack.AddressEndpoint, tcpip.Error) {
-	addressEndpoint, err := e.mu.addressableEndpointState.AddAndAcquirePermanentAddress(addr, peb, configType, deprecated)
+func (e *endpoint) addAndAcquirePermanentAddressLocked(addr tcpip.AddressWithPrefix, peb stack.PrimaryEndpointBehavior, configType stack.AddressConfigType, deprecated bool, preferredLifetime, validLifetime *time.Duration) (stack.AddressEndpoint, tcpip.Error) {
+	addressEndpoint, err := e.mu.addressableEndpointState.AddAndAcquirePermanentAddress(addr, peb, configType, deprecated, preferredLifetime, validLifetime)
 	if err != nil {
 		return nil, err
 	}
@@ -2053,7 +2053,7 @@ func (p *protocol) NewEndpoint(nic stack.NetworkInterface, dispatcher stack.Tran
 	}
 
 	e.mu.Lock()
-	e.mu.addressableEndpointState.Init(e)
+	e.mu.addressableEndpointState.Init(e, p.stack)
 	e.mu.ndp.init(e, dadOptions)
 	e.mu.mld.init(e)
 	e.dad.mu.Lock()

@@ -16,6 +16,7 @@ package stack
 
 import (
 	"fmt"
+	"time"
 
 	"gvisor.dev/gvisor/pkg/sync"
 	"gvisor.dev/gvisor/pkg/tcpip"
@@ -26,6 +27,7 @@ var _ AddressableEndpoint = (*AddressableEndpointState)(nil)
 // AddressableEndpointState is an implementation of an AddressableEndpoint.
 type AddressableEndpointState struct {
 	networkEndpoint NetworkEndpoint
+	stack           *Stack
 
 	// Lock ordering (from outer to inner lock ordering):
 	//
@@ -42,8 +44,9 @@ type AddressableEndpointState struct {
 // Init initializes the AddressableEndpointState with networkEndpoint.
 //
 // Must be called before calling any other function on m.
-func (a *AddressableEndpointState) Init(networkEndpoint NetworkEndpoint) {
+func (a *AddressableEndpointState) Init(networkEndpoint NetworkEndpoint, stack *Stack) {
 	a.networkEndpoint = networkEndpoint
+	a.stack = stack
 
 	a.mu.Lock()
 	defer a.mu.Unlock()
@@ -117,10 +120,10 @@ func (a *AddressableEndpointState) releaseAddressStateLocked(addrState *addressS
 }
 
 // AddAndAcquirePermanentAddress implements AddressableEndpoint.
-func (a *AddressableEndpointState) AddAndAcquirePermanentAddress(addr tcpip.AddressWithPrefix, peb PrimaryEndpointBehavior, configType AddressConfigType, deprecated bool) (AddressEndpoint, tcpip.Error) {
+func (a *AddressableEndpointState) AddAndAcquirePermanentAddress(addr tcpip.AddressWithPrefix, peb PrimaryEndpointBehavior, configType AddressConfigType, deprecated bool, preferredLifetime, validLifetime *time.Duration) (AddressEndpoint, tcpip.Error) {
 	a.mu.Lock()
 	defer a.mu.Unlock()
-	ep, err := a.addAndAcquireAddressLocked(addr, peb, configType, deprecated, true /* permanent */)
+	ep, err := a.addAndAcquireAddressLocked(addr, peb, configType, deprecated, true /* permanent */, nil, nil)
 	// From https://golang.org/doc/faq#nil_error:
 	//
 	// Under the covers, interfaces are implemented as two elements, a type T and
@@ -149,7 +152,7 @@ func (a *AddressableEndpointState) AddAndAcquirePermanentAddress(addr tcpip.Addr
 func (a *AddressableEndpointState) AddAndAcquireTemporaryAddress(addr tcpip.AddressWithPrefix, peb PrimaryEndpointBehavior) (AddressEndpoint, tcpip.Error) {
 	a.mu.Lock()
 	defer a.mu.Unlock()
-	ep, err := a.addAndAcquireAddressLocked(addr, peb, AddressConfigStatic, false /* deprecated */, false /* permanent */)
+	ep, err := a.addAndAcquireAddressLocked(addr, peb, AddressConfigStatic, false /* deprecated */, false /* permanent */, nil, nil)
 	// From https://golang.org/doc/faq#nil_error:
 	//
 	// Under the covers, interfaces are implemented as two elements, a type T and
@@ -180,7 +183,7 @@ func (a *AddressableEndpointState) AddAndAcquireTemporaryAddress(addr tcpip.Addr
 // returned, regardless the kind of address that is being added.
 //
 // Precondition: a.mu must be write locked.
-func (a *AddressableEndpointState) addAndAcquireAddressLocked(addr tcpip.AddressWithPrefix, peb PrimaryEndpointBehavior, configType AddressConfigType, deprecated, permanent bool) (*addressState, tcpip.Error) {
+func (a *AddressableEndpointState) addAndAcquireAddressLocked(addr tcpip.AddressWithPrefix, peb PrimaryEndpointBehavior, configType AddressConfigType, deprecated, permanent bool, preferredLifetime, validLifetime *time.Duration) (*addressState, tcpip.Error) {
 	// attemptAddToPrimary is false when the address is already in the primary
 	// address list.
 	attemptAddToPrimary := true
@@ -242,6 +245,33 @@ func (a *AddressableEndpointState) addAndAcquireAddressLocked(addr tcpip.Address
 		// We never promote an address to temporary - it can only be added as such.
 		// If we are actaully adding a permanent address, it is promoted below.
 		addrState.mu.kind = Temporary
+
+		if preferredLifetime != nil {
+			addrState.mu.deprecationJob = a.stack.NewJob(&a.mu, func() {
+				state, ok := a.mu.endpoints[addr.Address]
+				if ok {
+					state.SetDeprecated(true)
+				}
+			})
+
+			addrState.mu.deprecationJob.Schedule(*preferredLifetime)
+		}
+		if validLifetime != nil {
+			addrState.mu.invalidationJob = a.stack.NewJob(&a.mu, func() {
+				state, ok := a.mu.endpoints[addr.Address]
+				if ok {
+					if permanent {
+						if err := a.removePermanentEndpointLocked(state); err != nil {
+							panic(fmt.Sprintf("error removing address %v: %s", state.addr, err))
+						}
+					} else {
+						a.decAddressRefLocked(addrState)
+					}
+				}
+			})
+
+			addrState.mu.invalidationJob.Schedule(*validLifetime)
+		}
 	}
 
 	// At this point we have an address we are either promoting from an expired or
@@ -489,7 +519,7 @@ func (a *AddressableEndpointState) AcquireAssignedAddressOrMatching(localAddr tc
 
 	// Proceed to add a new temporary endpoint.
 	addr := localAddr.WithPrefix()
-	ep, err := a.addAndAcquireAddressLocked(addr, tempPEB, AddressConfigStatic, false /* deprecated */, false /* permanent */)
+	ep, err := a.addAndAcquireAddressLocked(addr, tempPEB, AddressConfigStatic, false /* deprecated */, false /* permanent */, nil, nil)
 	if err != nil {
 		// addAndAcquireAddressLocked only returns an error if the address is
 		// already assigned but we just checked above if the address exists so we
@@ -624,6 +654,12 @@ type addressState struct {
 		kind       AddressKind
 		configType AddressConfigType
 		deprecated bool
+
+		// Job to deprecate the address.
+		deprecationJob *tcpip.Job
+
+		// Job to invalidate the address.
+		invalidationJob *tcpip.Job
 	}
 }
 

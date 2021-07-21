@@ -135,7 +135,7 @@ func (p *protocol) NewEndpoint(nic stack.NetworkInterface, dispatcher stack.Tran
 		protocol:   p,
 	}
 	e.mu.Lock()
-	e.mu.addressableEndpointState.Init(e)
+	e.mu.addressableEndpointState.Init(e, p.stack)
 	e.mu.igmp.init(e)
 	e.mu.Unlock()
 
@@ -240,7 +240,7 @@ func (e *endpoint) Enable() tcpip.Error {
 	}
 
 	// Create an endpoint to receive broadcast packets on this interface.
-	ep, err := e.mu.addressableEndpointState.AddAndAcquirePermanentAddress(ipv4BroadcastAddr, stack.NeverPrimaryEndpoint, stack.AddressConfigStatic, false /* deprecated */)
+	ep, err := e.mu.addressableEndpointState.AddAndAcquirePermanentAddress(ipv4BroadcastAddr, stack.NeverPrimaryEndpoint, stack.AddressConfigStatic, false /* deprecated */, nil, nil)
 	if err != nil {
 		return err
 	}
@@ -1074,11 +1074,11 @@ func (e *endpoint) Close() {
 }
 
 // AddAndAcquirePermanentAddress implements stack.AddressableEndpoint.
-func (e *endpoint) AddAndAcquirePermanentAddress(addr tcpip.AddressWithPrefix, peb stack.PrimaryEndpointBehavior, configType stack.AddressConfigType, deprecated bool) (stack.AddressEndpoint, tcpip.Error) {
+func (e *endpoint) AddAndAcquirePermanentAddress(addr tcpip.AddressWithPrefix, peb stack.PrimaryEndpointBehavior, configType stack.AddressConfigType, deprecated bool, preferredLifetime, validLifetime *time.Duration) (stack.AddressEndpoint, tcpip.Error) {
 	e.mu.RLock()
 	defer e.mu.RUnlock()
 
-	ep, err := e.mu.addressableEndpointState.AddAndAcquirePermanentAddress(addr, peb, configType, deprecated)
+	ep, err := e.mu.addressableEndpointState.AddAndAcquirePermanentAddress(addr, peb, configType, deprecated, preferredLifetime, validLifetime)
 	if err == nil {
 		e.mu.igmp.sendQueuedReports()
 	}

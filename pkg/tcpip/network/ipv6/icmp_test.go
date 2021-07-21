@@ -225,8 +225,8 @@ func TestICMPCounts(t *testing.T) {
 		t.Fatalf("expected network endpoint to implement stack.AddressableEndpoint")
 	}
 	addr := lladdr0.WithPrefix()
-	if ep, err := addressableEndpoint.AddAndAcquirePermanentAddress(addr, stack.CanBePrimaryEndpoint, stack.AddressConfigStatic, false /* deprecated */); err != nil {
-		t.Fatalf("addressableEndpoint.AddAndAcquirePermanentAddress(%s, CanBePrimaryEndpoint, AddressConfigStatic, false): %s", addr, err)
+	if ep, err := addressableEndpoint.AddAndAcquirePermanentAddress(addr, stack.CanBePrimaryEndpoint, stack.AddressConfigStatic, false /* deprecated */, nil, nil); err != nil {
+		t.Fatalf("addressableEndpoint.AddAndAcquirePermanentAddress(%s, CanBePrimaryEndpoint, AddressConfigStatic, false, nil, nil): %s", addr, err)
 	} else {
 		ep.DecRef()
 	}
@@ -1704,8 +1704,8 @@ func TestCallsToNeighborCache(t *testing.T) {
 				t.Fatalf("expected network endpoint to implement stack.AddressableEndpoint")
 			}
 			addr := lladdr0.WithPrefix()
-			if ep, err := addressableEndpoint.AddAndAcquirePermanentAddress(addr, stack.CanBePrimaryEndpoint, stack.AddressConfigStatic, false /* deprecated */); err != nil {
-				t.Fatalf("addressableEndpoint.AddAndAcquirePermanentAddress(%s, CanBePrimaryEndpoint, AddressConfigStatic, false): %s", addr, err)
+			if ep, err := addressableEndpoint.AddAndAcquirePermanentAddress(addr, stack.CanBePrimaryEndpoint, stack.AddressConfigStatic, false /* deprecated */, nil, nil); err != nil {
+				t.Fatalf("addressableEndpoint.AddAndAcquirePermanentAddress(%s, CanBePrimaryEndpoint, AddressConfigStatic, false, nil, nil): %s", addr, err)
 			} else {
 				ep.DecRef()
 			}

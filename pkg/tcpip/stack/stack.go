@@ -943,6 +943,29 @@ func (s *Stack) AddAddressWithOptions(id tcpip.NICID, protocol tcpip.NetworkProt
 // AddProtocolAddressWithOptions is the same as AddProtocolAddress, but allows
 // you to specify whether the new endpoint can be primary or not.
 func (s *Stack) AddProtocolAddressWithOptions(id tcpip.NICID, protocolAddress tcpip.ProtocolAddress, peb PrimaryEndpointBehavior) tcpip.Error {
+	return s.AddProtocolAddressWithLifetimes(id, protocolAddress, peb, false, nil, nil)
+}
+
+// AddAddressWithLifetimes is the same as AddAddress, but allows you to specify
+// whether the address is deprecated, and preferred and valid lifetimes.
+func (s *Stack) AddAddressWithLifetimes(id tcpip.NICID, protocol tcpip.NetworkProtocolNumber, addr tcpip.Address, peb PrimaryEndpointBehavior, deprecated bool, validLifetime *time.Duration, preferredLifetime *time.Duration) tcpip.Error {
+	netProto, ok := s.networkProtocols[protocol]
+	if !ok {
+		return &tcpip.ErrUnknownProtocol{}
+	}
+	return s.AddProtocolAddressWithLifetimes(id, tcpip.ProtocolAddress{
+		Protocol: protocol,
+		AddressWithPrefix: tcpip.AddressWithPrefix{
+			Address:   addr,
+			PrefixLen: netProto.DefaultPrefixLen(),
+		},
+	}, peb, deprecated, validLifetime, preferredLifetime)
+}
+
+// AddProtocolAddressWithLifetimes is the same as AddProtocolAddress, but allows
+// you to specify whether the address is deprecated, and preferred and valid
+// lifetimes.
+func (s *Stack) AddProtocolAddressWithLifetimes(id tcpip.NICID, protocolAddress tcpip.ProtocolAddress, peb PrimaryEndpointBehavior, deprecated bool, validLifetime *time.Duration, preferredLifetime *time.Duration) tcpip.Error {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 
@@ -951,7 +974,7 @@ func (s *Stack) AddProtocolAddressWithOptions(id tcpip.NICID, protocolAddress tc
 		return &tcpip.ErrUnknownNICID{}
 	}
 
-	return nic.addAddress(protocolAddress, peb)
+	return nic.addAddress(protocolAddress, peb, deprecated, validLifetime, preferredLifetime)
 }
 
 // RemoveAddress removes an existing network-layer address from the specified
