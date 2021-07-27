@@ -15,11 +15,13 @@
 package icmp
 
 import (
+	"fmt"
 	"time"
 
 	"gvisor.dev/gvisor/pkg/tcpip"
 	"gvisor.dev/gvisor/pkg/tcpip/buffer"
 	"gvisor.dev/gvisor/pkg/tcpip/stack"
+	"gvisor.dev/gvisor/pkg/tcpip/transport"
 )
 
 // saveReceivedAt is invoked by stateify.
@@ -61,29 +63,29 @@ func (e *endpoint) beforeSave() {
 // Resume implements tcpip.ResumableEndpoint.Resume.
 func (e *endpoint) Resume(s *stack.Stack) {
 	e.thaw()
+
+	e.net.Resume(s)
+
 	e.stack = s
 	e.ops.InitHandler(e, e.stack, tcpip.GetStackSendBufferLimits, tcpip.GetStackReceiveBufferLimits)
 
-	if e.state != stateBound && e.state != stateConnected {
-		return
-	}
-
-	var err tcpip.Error
-	if e.state == stateConnected {
-		e.route, err = e.stack.FindRoute(e.RegisterNICID, e.BindAddr, e.ID.RemoteAddress, e.NetProto, false /* multicastLoop */)
+	switch state := e.net.State(); state {
+	case transport.DatagramEndpointStateInitial, transport.DatagramEndpointStateClosed:
+	case transport.DatagramEndpointStateBound, transport.DatagramEndpointStateConnected:
+		// Our saved state had a port, but we don't actually have a
+		// reservation. We need to remove the port from our state, but still
+		// pass it to the reservation machinery.
+		var err tcpip.Error
+		id := e.net.Info().ID
+		id.LocalPort = e.ident
+		netProto := e.net.NetProto()
+		id, btd, err := e.registerWithStack(netProto, id)
 		if err != nil {
-			panic(err)
+			panic(fmt.Sprintf("e.registerWithStack(%d, %#v): %s", netProto, id, err))
 		}
-
-		e.ID.LocalAddress = e.route.LocalAddress()
-	} else if len(e.ID.LocalAddress) != 0 { // stateBound
-		if e.stack.CheckLocalAddress(e.RegisterNICID, e.NetProto, e.ID.LocalAddress) == 0 {
-			panic(&tcpip.ErrBadLocalAddress{})
-		}
-	}
-
-	e.ID, err = e.registerWithStack(e.RegisterNICID, []tcpip.NetworkProtocolNumber{e.NetProto}, e.ID)
-	if err != nil {
-		panic(err)
+		e.ident = id.LocalPort
+		e.boundBindToDevice = btd
+	default:
+		panic(fmt.Sprintf("unhandled state = %s", state))
 	}
 }
