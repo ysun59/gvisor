@@ -23,6 +23,7 @@ import (
 	"time"
 
 	"gvisor.dev/gvisor/pkg/tcpip"
+	"gvisor.dev/gvisor/pkg/tcpip/checker"
 	"gvisor.dev/gvisor/pkg/tcpip/header"
 	"gvisor.dev/gvisor/pkg/tcpip/seqnum"
 	"gvisor.dev/gvisor/pkg/tcpip/stack"
@@ -698,6 +699,201 @@ func TestRecoveryEntry(t *testing.T) {
 		}
 		return nil
 	}
+	if err := testutil.Poll(metricPollFn, 1*time.Second); err != nil {
+		t.Error(err)
+	}
+}
+
+func getOptions(t *testing.T, c *context.Context, data []byte) []byte {
+	bytesRead := 0
+	var options []byte
+	numPackets := 0
+	dataLen := 5 * maxPayload
+	for bytesRead != dataLen {
+		b := c.GetPacket()
+		numPackets++
+		tcpHdr := header.TCP(header.IPv4(b).Payload())
+		payloadLen := len(tcpHdr.Payload())
+		checker.IPv4(t, b,
+			checker.TCP(
+				checker.DstPort(context.TestPort),
+				checker.TCPSeqNum(uint32(c.IRS)+1+uint32(bytesRead)),
+				checker.TCPAckNum(context.TestInitialSequenceNumber+1),
+				checker.TCPFlagsMatch(header.TCPFlagAck, ^header.TCPFlagPsh),
+			),
+		)
+		pdata := data[bytesRead : bytesRead+payloadLen]
+		if p := tcpHdr.Payload(); !bytes.Equal(pdata, p) {
+			t.Fatalf("got data = %v, want = %v", p, pdata)
+		}
+		if bytesRead == 0 && c.TimeStampEnabled {
+			// If timestamp option is enabled, echo back the timestamp and increment
+			// the TSEcr value included in the packet and send that back as the TSVal.
+			parsedOpts := tcpHdr.ParsedOptions()
+			tsOpt := [12]byte{header.TCPOptionNOP, header.TCPOptionNOP}
+			header.EncodeTSOption(parsedOpts.TSEcr+1, parsedOpts.TSVal, tsOpt[2:])
+			options = tsOpt[:]
+		}
+		bytesRead += payloadLen
+		// Timestamps are at millisecond granularity.
+		time.Sleep(time.Millisecond)
+	}
+	return options
+}
+
+func TestSACKDetectSpuriousRecovery(t *testing.T) {
+	testCases := []struct {
+		name string
+	}{{"WithRTO"}, {"WithDupACK"}}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			c := context.New(t, uint32(mtu))
+			defer c.Cleanup()
+			setStackSACKPermitted(t, c, true)
+			createConnectedWithSACKAndTS(c)
+			data := make([]byte, 5*maxPayload)
+			for i := range data {
+				data[i] = byte(i)
+			}
+			// Write the data.
+			var r bytes.Reader
+			r.Reset(data)
+			if _, err := c.EP.Write(&r, tcpip.WriteOptions{}); err != nil {
+				t.Fatalf("Write failed: %s", err)
+			}
+
+			options := getOptions(t, c, data)
+			seq := seqnum.Value(context.TestInitialSequenceNumber).Add(1)
+			if tc.name == "WithDupACK" {
+				// Send ACK for #3 and #4 segments to avoid entering TLP.
+				start := c.IRS.Add(3*maxPayload + 1)
+				end := start.Add(2 * maxPayload)
+				c.SendAckWithSACK(seq, 0, []header.SACKBlock{{start, end}})
+
+				c.SendAck(seq, 0)
+				c.SendAck(seq, 0)
+
+				// Receive the retransmitted packet after three duplicate ACKs.
+				c.ReceiveAndCheckPacketWithOptions(data, 0, maxPayload, tsOptionSize)
+			} else {
+				// Expect #5 segment with TLP.
+				c.ReceiveAndCheckPacketWithOptions(data, 4*maxPayload, maxPayload, tsOptionSize)
+
+				// Expect #1 segment because of RTO.
+				c.ReceiveAndCheckPacketWithOptions(data, 0, maxPayload, tsOptionSize)
+			}
+
+			info := tcpip.TCPInfoOption{}
+			if err := c.EP.GetSockOpt(&info); err != nil {
+				t.Fatalf("c.EP.GetSockOpt(&%T) = %s", info, err)
+			}
+
+			if tc.name == "WithDupACK" {
+				if info.CcState != tcpip.SACKRecovery {
+					t.Fatalf("Loss recovery did not happen, got: %v want: %v", info.CcState, tcpip.SACKRecovery)
+				}
+			} else {
+				if info.CcState != tcpip.RTORecovery {
+					t.Fatalf("Loss recovery did not happen, got: %v want: %v", info.CcState, tcpip.RTORecovery)
+				}
+			}
+
+			// Acknowledge the data.
+			rcvWnd := seqnum.Size(30000)
+			c.SendPacket(nil, &context.Headers{
+				SrcPort: context.TestPort,
+				DstPort: c.Port,
+				Flags:   header.TCPFlagAck,
+				SeqNum:  seq,
+				AckNum:  c.IRS.Add(1 + seqnum.Size(maxPayload)),
+				RcvWnd:  rcvWnd,
+				TCPOpts: options,
+			})
+
+			metricPollFn := func() error {
+				tcpStats := c.Stack().Stats().TCP
+				stats := []struct {
+					stat *tcpip.StatCounter
+					name string
+					want uint64
+				}{
+					{tcpStats.SpuriousRecovery, "stats.TCP.SpuriousRecovery", 1},
+				}
+				for _, s := range stats {
+					if got, want := s.stat.Value(), s.want; got != want {
+						return fmt.Errorf("got %s.Value() = %d, want = %d", s.name, got, want)
+					}
+				}
+				return nil
+			}
+
+			if err := testutil.Poll(metricPollFn, 1*time.Second); err != nil {
+				t.Error(err)
+			}
+		})
+	}
+}
+
+func TestNoSpuriousRecoveryWithDSACK(t *testing.T) {
+	c := context.New(t, uint32(mtu))
+	defer c.Cleanup()
+	setStackSACKPermitted(t, c, true)
+	createConnectedWithSACKAndTS(c)
+	data := make([]byte, 5*maxPayload)
+	for i := range data {
+		data[i] = byte(i)
+	}
+	// Write the data.
+	var r bytes.Reader
+	r.Reset(data)
+	if _, err := c.EP.Write(&r, tcpip.WriteOptions{}); err != nil {
+		t.Fatalf("Write failed: %s", err)
+	}
+
+	// Send ACK for #3 and #4 segments to avoid entering TLP.
+	start := c.IRS.Add(3*maxPayload + 1)
+	end := start.Add(2 * maxPayload)
+	seq := seqnum.Value(context.TestInitialSequenceNumber).Add(1)
+	c.SendAckWithSACK(seq, 0, []header.SACKBlock{{start, end}})
+
+	c.SendAck(seq, 0)
+	c.SendAck(seq, 0)
+
+	// Receive the retransmitted packet after three duplicate ACKs.
+	c.ReceiveAndCheckPacketWithOptions(data, 0, maxPayload, tsOptionSize)
+
+	info := tcpip.TCPInfoOption{}
+	if err := c.EP.GetSockOpt(&info); err != nil {
+		t.Fatalf("c.EP.GetSockOpt(&%T) = %s", info, err)
+	}
+	if info.CcState != tcpip.SACKRecovery {
+		t.Fatalf("Loss recovery did not happen, got: %v want: %v", info.CcState, tcpip.SACKRecovery)
+	}
+
+	// Acknowledge the data with DSACK for #1 segment.
+	start = c.IRS.Add(maxPayload + 1)
+	end = start.Add(2 * maxPayload)
+	seq = seqnum.Value(context.TestInitialSequenceNumber).Add(1)
+	c.SendAckWithSACK(seq, 6*maxPayload, []header.SACKBlock{{start, end}})
+
+	metricPollFn := func() error {
+		tcpStats := c.Stack().Stats().TCP
+		stats := []struct {
+			stat *tcpip.StatCounter
+			name string
+			want uint64
+		}{
+			{tcpStats.SpuriousRecovery, "stats.TCP.SpuriousRecovery", 0},
+		}
+		for _, s := range stats {
+			if got, want := s.stat.Value(), s.want; got != want {
+				return fmt.Errorf("got %s.Value() = %d, want = %d", s.name, got, want)
+			}
+		}
+		return nil
+	}
+
 	if err := testutil.Poll(metricPollFn, 1*time.Second); err != nil {
 		t.Error(err)
 	}
