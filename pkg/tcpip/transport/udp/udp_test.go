@@ -1645,7 +1645,7 @@ func TestSetTTL(t *testing.T) {
 }
 
 func TestSetTOS(t *testing.T) {
-	for _, flow := range []testFlow{unicastV4, multicastV4, broadcast} {
+	for _, flow := range []testFlow{unicastV4, multicastV4, broadcast, unicastV4in6, multicastV4in6, broadcastIn6} {
 		t.Run(fmt.Sprintf("flow:%s", flow), func(t *testing.T) {
 			c := newDualTestContext(t, defaultMTU)
 			defer c.cleanup()
@@ -1681,7 +1681,7 @@ func TestSetTOS(t *testing.T) {
 }
 
 func TestSetTClass(t *testing.T) {
-	for _, flow := range []testFlow{unicastV4in6, unicastV6, unicastV6Only, multicastV4in6, multicastV6, broadcastIn6} {
+	for _, flow := range []testFlow{unicastV6, unicastV6Only, multicastV6} {
 		t.Run(fmt.Sprintf("flow:%s", flow), func(t *testing.T) {
 			c := newDualTestContext(t, defaultMTU)
 			defer c.cleanup()

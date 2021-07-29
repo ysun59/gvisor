@@ -1685,6 +1685,87 @@ TEST_P(UdpSocketTest, TimestampIoctlPersistence) {
   ASSERT_EQ(tv.tv_usec, tv2.tv_usec);
 }
 
+// TOS and TCLASS values may be different but IPv6 sockets with IPv4-mapped-IPv6
+// addresses use TOS (IPv4), not TCLASS (IPv6).
+TEST_P(UdpSocketTest, DifferentTOSAndTClass) {
+  const int tos = IPTOS_LOWDELAY;
+  const int tclass = IPTOS_THROUGHPUT;
+  ASSERT_NE(tos, tclass);
+
+  ASSERT_THAT(setsockopt(sock_.get(), SOL_IP, IP_TOS, &tos, sizeof(tos)),
+              SyscallSucceeds());
+  if (GetParam() == AddressFamily::kIpv6) {
+    ASSERT_THAT(
+        setsockopt(sock_.get(), SOL_IPV6, IPV6_TCLASS, &tclass, sizeof(tclass)),
+        SyscallSucceeds());
+  }
+
+  int got_tos = 0;
+  socklen_t got_tos_len = sizeof(got_tos);
+  ASSERT_THAT(getsockopt(sock_.get(), SOL_IP, IP_TOS, &got_tos, &got_tos_len),
+              SyscallSucceeds());
+  ASSERT_EQ(got_tos_len, sizeof(got_tos));
+  EXPECT_EQ(got_tos, tos);
+
+  if (GetParam() == AddressFamily::kIpv6) {
+    int got_tclass = 0;
+    socklen_t got_tclass_len = sizeof(got_tclass);
+    ASSERT_THAT(getsockopt(sock_.get(), SOL_IPV6, IPV6_TCLASS, &got_tclass,
+                           &got_tclass_len),
+                SyscallSucceeds());
+    ASSERT_EQ(got_tclass_len, sizeof(got_tclass));
+    EXPECT_EQ(got_tclass, tclass);
+  } else {
+    return;
+  }
+
+  // IPv4-mapped-IPv6 loopback.
+  struct sockaddr_in6 addr;
+  addr.sin6_family = AF_INET6;
+  inet_pton(AF_INET6, "::ffff:7f00:0001", &addr.sin6_addr);
+  ASSERT_NO_ERRNO(BindSocket(bind_.get(), reinterpret_cast<sockaddr*>(&addr)));
+  ASSERT_THAT(setsockopt(bind_.get(), SOL_IP, IP_RECVTOS, &kSockOptOn,
+                         sizeof(kSockOptOn)),
+              SyscallSucceeds());
+  ASSERT_THAT(
+      connect(sock_.get(), reinterpret_cast<sockaddr*>(&addr), sizeof(addr)),
+      SyscallSucceeds());
+  constexpr size_t kDataLength = 1024;
+  struct msghdr sent_msg = {};
+  struct iovec sent_iov = {};
+  char sent_data[kDataLength];
+  sent_iov.iov_base = &sent_data[0];
+  sent_iov.iov_len = kDataLength;
+  sent_msg.msg_iov = &sent_iov;
+  sent_msg.msg_iovlen = 1;
+  ASSERT_THAT(RetryEINTR(sendmsg)(sock_.get(), &sent_msg, 0),
+              SyscallSucceedsWithValue(kDataLength));
+
+  // Receive message.
+  struct msghdr received_msg = {};
+  struct iovec received_iov = {};
+  char received_data[kDataLength];
+  received_iov.iov_base = &received_data[0];
+  received_iov.iov_len = kDataLength;
+  received_msg.msg_iov = &received_iov;
+  received_msg.msg_iovlen = 1;
+  size_t cmsg_data_len = sizeof(int8_t);
+  std::vector<char> received_cmsgbuf(CMSG_SPACE(cmsg_data_len));
+  received_msg.msg_control = &received_cmsgbuf[0];
+  received_msg.msg_controllen = received_cmsgbuf.size();
+  ASSERT_THAT(RetryEINTR(recvmsg)(bind_.get(), &received_msg, 0),
+              SyscallSucceedsWithValue(kDataLength));
+
+  struct cmsghdr* cmsg = CMSG_FIRSTHDR(&received_msg);
+  ASSERT_NE(cmsg, nullptr);
+  EXPECT_EQ(cmsg->cmsg_len, CMSG_LEN(cmsg_data_len));
+  EXPECT_EQ(cmsg->cmsg_level, SOL_IP);
+  EXPECT_EQ(cmsg->cmsg_type, IP_TOS);
+  int8_t received_tos = 0;
+  memcpy(&received_tos, CMSG_DATA(cmsg), sizeof(received_tos));
+  EXPECT_EQ(received_tos, tos);
+}
+
 // Test that a socket with IP_TOS or IPV6_TCLASS set will set the TOS byte on
 // outgoing packets, and that a receiving socket with IP_RECVTOS or
 // IPV6_RECVTCLASS will create the corresponding control message.
