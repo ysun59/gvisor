@@ -1382,8 +1382,12 @@ func TestListenerReadinessOnEvent(t *testing.T) {
 		if err := s.CreateNIC(id, ep); err != nil {
 			t.Fatalf("CreateNIC(%d, %T): %s", id, ep, err)
 		}
-		if err := s.AddAddress(id, ipv4.ProtocolNumber, context.StackAddr); err != nil {
-			t.Fatalf("AddAddress(%d, ipv4.ProtocolNumber, %s): %s", id, context.StackAddr, err)
+		protocolAddr := tcpip.ProtocolAddress{
+			Protocol:          ipv4.ProtocolNumber,
+			AddressWithPrefix: tcpip.Address(context.StackAddr).WithPrefix(),
+		}
+		if err := s.AddProtocolAddress(id, protocolAddr, stack.AddressProperties{}); err != nil {
+			t.Fatalf("AddProtocolAddress(%d, %+v, {}): %s", id, protocolAddr, err)
 		}
 		s.SetRouteTable([]tcpip.Route{
 			{Destination: header.IPv4EmptySubnet, NIC: id},
@@ -4954,13 +4958,17 @@ func makeStack() (*stack.Stack, tcpip.Error) {
 	}
 
 	for _, ct := range []struct {
-		number  tcpip.NetworkProtocolNumber
-		address tcpip.Address
+		number         tcpip.NetworkProtocolNumber
+		addrWithPrefix tcpip.AddressWithPrefix
 	}{
-		{ipv4.ProtocolNumber, context.StackAddr},
-		{ipv6.ProtocolNumber, context.StackV6Addr},
+		{ipv4.ProtocolNumber, context.StackAddrWithPrefix},
+		{ipv6.ProtocolNumber, context.StackV6AddrWithPrefix},
 	} {
-		if err := s.AddAddress(1, ct.number, ct.address); err != nil {
+		protocolAddr := tcpip.ProtocolAddress{
+			Protocol:          ct.number,
+			AddressWithPrefix: ct.addrWithPrefix,
+		}
+		if err := s.AddProtocolAddress(1, protocolAddr, stack.AddressProperties{}); err != nil {
 			return nil, err
 		}
 	}
