@@ -240,12 +240,6 @@ func (e *endpoint) handleICMP(pkt *stack.PacketBuffer) {
 	case header.ICMPv4Echo:
 		received.echoRequest.Increment()
 
-		sent := e.stats.icmp.packetsSent
-		if !e.protocol.stack.AllowICMPMessage() {
-			sent.rateLimited.Increment()
-			return
-		}
-
 		// DeliverTransportPacket will take ownership of pkt so don't use it beyond
 		// this point. Make a deep copy of the data before pkt gets sent as we will
 		// be modifying fields.
@@ -322,6 +316,7 @@ func (e *endpoint) handleICMP(pkt *stack.PacketBuffer) {
 		})
 		replyPkt.TransportProtocolNumber = header.ICMPv4ProtocolNumber
 
+		sent := e.stats.icmp.packetsSent
 		if err := r.WriteHeaderIncludedPacket(replyPkt); err != nil {
 			sent.dropped.Increment()
 			return
