@@ -315,7 +315,10 @@ type accepted struct {
 	// belong to one list at a time, and endpoints are already stored in the
 	// dispatcher's list.
 	endpoints list.List `state:".([]*endpoint)"`
-	cap       int
+	// pending counts the number of connections that are currently being delivered
+	// to the endpoints list above.
+	pending int
+	cap     int
 }
 
 // endpoint represents a TCP endpoint. This struct serves as the interface
@@ -2490,7 +2493,7 @@ func (e *endpoint) listen(backlog int) tcpip.Error {
 		} else {
 			// Adjust the size of the backlog iff we can fit
 			// existing pending connections into the new one.
-			if e.accepted.endpoints.Len() > backlog {
+			if e.accepted.endpoints.Len()+e.accepted.pending > backlog {
 				return &tcpip.ErrInvalidEndpointState{}
 			}
 			e.accepted.cap = backlog

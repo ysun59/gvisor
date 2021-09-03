@@ -401,10 +401,10 @@ func (l *listenContext) cleanupCompletedHandshake(h *handshake) {
 	e.h = nil
 }
 
-// deliverAccepted delivers the newly-accepted endpoint to the listener. If the
-// listener has transitioned out of the listen state (accepted is the zero
+// deliverAcceptedInner delivers the newly-accepted endpoint to the listener. If
+// the listener has transitioned out of the listen state (accepted is the zero
 // value), the new endpoint is reset instead.
-func (e *endpoint) deliverAccepted(n *endpoint, withSynCookie bool) {
+func (e *endpoint) deliverAcceptedInner(n *endpoint, withSynCookie bool) {
 	e.mu.Lock()
 	e.pendingAccepted.Add(1)
 	e.mu.Unlock()
@@ -425,6 +425,7 @@ func (e *endpoint) deliverAccepted(n *endpoint, withSynCookie bool) {
 			}
 
 			e.accepted.endpoints.PushBack(n)
+			e.accepted.pending--
 			if !withSynCookie {
 				atomic.AddInt32(&e.synRcvdCount, -1)
 			}
@@ -435,6 +436,23 @@ func (e *endpoint) deliverAccepted(n *endpoint, withSynCookie bool) {
 		e.waiterQueue.Notify(waiter.ReadableEvents)
 	} else {
 		n.notifyProtocolGoroutine(notifyReset)
+	}
+}
+
+func (e *endpoint) deliverAccepted(n *endpoint, withSynCookie, async bool) {
+	e.acceptMu.Lock()
+	// We keep track of the number of accepted-but-not-yet-delivered endpoints.
+	// This is used when determining if the accept queue is full. The number of
+	// endpoints in the accept queue is not enough on its own, because it may be
+	// updated asynchronously and pending endpoints should count towards the
+	// accept queue size.
+	e.accepted.pending++
+	e.acceptMu.Unlock()
+
+	if async {
+		go e.deliverAcceptedInner(n, withSynCookie)
+	} else {
+		e.deliverAcceptedInner(n, withSynCookie)
 	}
 }
 
@@ -521,7 +539,7 @@ func (e *endpoint) handleSynSegment(ctx *listenContext, s *segment, opts header.
 		ctx.cleanupCompletedHandshake(h)
 		h.ep.startAcceptedLoop()
 		e.stack.Stats().TCP.PassiveConnectionOpenings.Increment()
-		e.deliverAccepted(h.ep, false /*withSynCookie*/)
+		e.deliverAccepted(h.ep, false /*withSynCookie*/, false /*async*/)
 	}()
 
 	return nil
@@ -544,7 +562,7 @@ func (e *endpoint) synRcvdBacklogFull() bool {
 
 func (e *endpoint) acceptQueueIsFull() bool {
 	e.acceptMu.Lock()
-	full := e.accepted != (accepted{}) && e.accepted.endpoints.Len() == e.accepted.cap
+	full := e.accepted != (accepted{}) && (e.accepted.pending+e.accepted.endpoints.Len() == e.accepted.cap)
 	e.acceptMu.Unlock()
 	return full
 }
@@ -755,20 +773,18 @@ func (e *endpoint) handleListenSegment(ctx *listenContext, s *segment) tcpip.Err
 			n.newSegmentWaker.Assert()
 		}
 
-		// Do the delivery in a separate goroutine so
-		// that we don't block the listen loop in case
-		// the application is slow to accept or stops
-		// accepting.
-		//
-		// NOTE: This won't result in an unbounded
-		// number of goroutines as we do check before
-		// entering here that there was at least some
-		// space available in the backlog.
-
 		// Start the protocol goroutine.
 		n.startAcceptedLoop()
 		e.stack.Stats().TCP.PassiveConnectionOpenings.Increment()
-		go e.deliverAccepted(n, true /*withSynCookie*/)
+
+		// Do the delivery asynchronously so that we don't block the listen loop in
+		// case the application is slow to accept or stops accepting.
+		//
+		// NOTE: This won't result in an unbounded number of goroutines as we do
+		// check before entering here that there was at least some space available
+		// in the backlog (which accounts for the connections counted by the pending
+		// field).
+		e.deliverAccepted(n, true /*withSynCookie*/, true /*async*/)
 		return nil
 
 	default:
