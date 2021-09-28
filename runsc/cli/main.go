@@ -57,11 +57,16 @@ var (
 
 // Main is the main entrypoint.
 func Main(version string) {
+	timeUnixus:=time.Now().UnixNano() / 1e3   //us
+	fmt.Printf("%v us, 'runsc cli main.go'\n", timeUnixus)
 	// Help and flags commands are generated automatically.
 	help := cmd.NewHelp(subcommands.DefaultCommander)
 	help.Register(new(cmd.Syscalls))
 	subcommands.Register(help, "")
 	subcommands.Register(subcommands.FlagsCommand(), "")
+
+	timeUnixus=time.Now().UnixNano() / 1e3   //us
+	fmt.Printf("%v us, '1'\n", timeUnixus)
 
 	// Installation helpers.
 	const helperGroup = "helpers"
@@ -102,8 +107,14 @@ func Main(version string) {
 
 	config.RegisterFlags()
 
+	timeUnixus=time.Now().UnixNano() / 1e3   //us
+	fmt.Printf("%v us, '2'\n", timeUnixus)
+
 	// All subcommands must be registered before flag parsing.
 	flag.Parse()
+
+	timeUnixus=time.Now().UnixNano() / 1e3   //us
+	fmt.Printf("%v us, '3'\n", timeUnixus)
 
 	// Are we showing the version?
 	if *showVersion {
@@ -112,6 +123,9 @@ func Main(version string) {
 		fmt.Fprintf(os.Stdout, "spec: %s\n", specutils.Version)
 		os.Exit(0)
 	}
+
+	timeUnixus=time.Now().UnixNano() / 1e3   //us
+	fmt.Printf("%v us, '4'\n", timeUnixus)
 
 	// Create a new Config from the flags.
 	conf, err := config.NewFromFlags()
@@ -141,6 +155,9 @@ func Main(version string) {
 	}
 	cmd.ErrorLogger = errorLogger
 
+	timeUnixus=time.Now().UnixNano() / 1e3   //us
+	fmt.Printf("%v us, '5'\n", timeUnixus)
+
 	if _, err := platform.Lookup(conf.Platform); err != nil {
 		cmd.Fatalf("%v", err)
 	}
@@ -153,6 +170,9 @@ func Main(version string) {
 	if conf.Debug {
 		log.SetLevel(log.Debug)
 	}
+
+	timeUnixus=time.Now().UnixNano() / 1e3   //us
+	fmt.Printf("%v us, '6'\n", timeUnixus)
 
 	// Logging will include the local date and time via the time package.
 	//
@@ -168,6 +188,9 @@ func Main(version string) {
 
 	subcommand := flag.CommandLine.Arg(0)
 
+	timeUnixus=time.Now().UnixNano() / 1e3   //us
+	fmt.Printf("%v us, '7'\n", timeUnixus)
+
 	var e log.Emitter
 	if *debugLogFD > -1 {
 		f := os.NewFile(uintptr(*debugLogFD), "debug log file")
@@ -180,6 +203,9 @@ func Main(version string) {
 			cmd.Fatalf("error opening debug log file in %q: %v", conf.DebugLog, err)
 		}
 		e = newEmitter(conf.DebugLogFormat, f)
+
+	timeUnixus=time.Now().UnixNano() / 1e3   //us
+	fmt.Printf("%v us, '8'\n", timeUnixus)
 
 	} else {
 		// Stderr is reserved for the application, just discard the logs if no debug
@@ -213,6 +239,9 @@ func Main(version string) {
 		coverage.EnableReport(f)
 	}
 
+	timeUnixus=time.Now().UnixNano() / 1e3   //us
+	fmt.Printf("%v us, '9'\n", timeUnixus)
+
 	log.SetTarget(e)
 
 	log.Infof("***************************")
@@ -238,23 +267,59 @@ func Main(version string) {
 		signal.Ignore(unix.SIGTERM)
 	}
 
+	timeUnixus=time.Now().UnixNano() / 1e3   //us
+	fmt.Printf("%v us, '10'\n", timeUnixus)
+
 	// Call the subcommand and pass in the configuration.
 	var ws unix.WaitStatus
+
+	timeUnixus=time.Now().UnixNano() / 1e3   //us
+	fmt.Printf("%v us, '11'\n", timeUnixus)
+
 	subcmdCode := subcommands.Execute(context.Background(), conf, &ws)
+
+	timeUnixus=time.Now().UnixNano() / 1e3   //us
+	fmt.Printf("%v us, '12'\n", timeUnixus)
+
 	// Check for leaks and write coverage report before os.Exit().
 	refsvfs2.DoLeakCheck()
 	_ = coverage.Report()
+
+	timeUnixus=time.Now().UnixNano() / 1e3   //us
+	fmt.Printf("%v us, '13'\n", timeUnixus)
+
 	if subcmdCode == subcommands.ExitSuccess {
+		timeUnixus=time.Now().UnixNano() / 1e3   //us
+		fmt.Printf("%v us, '16'\n", timeUnixus)
+
 		log.Infof("Exiting with status: %v", ws)
+		fmt.Printf("Exiting with status: %v\n", ws)
 		if ws.Signaled() {
+			timeUnixus=time.Now().UnixNano() / 1e3   //us
+			fmt.Printf("%v us, '17'\n", timeUnixus)
+
 			// No good way to return it, emulate what the shell does. Maybe raise
 			// signal to self?
 			os.Exit(128 + int(ws.Signal()))
 		}
+		timeUnixus=time.Now().UnixNano() / 1e3   //us
+		fmt.Printf("%v us, '18'\n", timeUnixus)
+
 		os.Exit(ws.ExitStatus())
+
+		timeUnixus=time.Now().UnixNano() / 1e3   //us
+		fmt.Printf("%v us, '19'\n", timeUnixus)
 	}
+
+	timeUnixus=time.Now().UnixNano() / 1e3   //us
+	fmt.Printf("%v us, '14'\n", timeUnixus)
+
 	// Return an error that is unlikely to be used by the application.
 	log.Warningf("Failure to execute command, err: %v", subcmdCode)
+
+	timeUnixus2:=time.Now().UnixNano() / 1e3   //us
+	fmt.Printf("%v us, '15'\n", timeUnixus2)
+
 	os.Exit(128)
 }
 

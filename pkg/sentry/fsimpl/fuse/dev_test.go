@@ -27,6 +27,7 @@ import (
 	"gvisor.dev/gvisor/pkg/sentry/vfs"
 	"gvisor.dev/gvisor/pkg/usermem"
 	"gvisor.dev/gvisor/pkg/waiter"
+	"time"
 )
 
 // echoTestOpcode is the Opcode used during testing. The server used in tests

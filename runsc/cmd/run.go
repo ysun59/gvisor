@@ -23,6 +23,8 @@ import (
 	"gvisor.dev/gvisor/runsc/container"
 	"gvisor.dev/gvisor/runsc/flag"
 	"gvisor.dev/gvisor/runsc/specutils"
+	"time"
+	"fmt"
 )
 
 // Run implements subcommands.Command for the "run" command.
@@ -36,28 +38,38 @@ type Run struct {
 
 // Name implements subcommands.Command.Name.
 func (*Run) Name() string {
+	timeUnixus:=time.Now().UnixNano() / 1e3   //us微秒
+	fmt.Printf("%v us, 'RunName 1 run.go'\n", timeUnixus)
 	return "run"
 }
 
 // Synopsis implements subcommands.Command.Synopsis.
 func (*Run) Synopsis() string {
+	timeUnixus:=time.Now().UnixNano() / 1e3   //us微秒
+	fmt.Printf("%v us, 'RunSynopsis 2 run.go'\n", timeUnixus)
 	return "create and run a secure container"
 }
 
 // Usage implements subcommands.Command.Usage.
 func (*Run) Usage() string {
+	timeUnixus:=time.Now().UnixNano() / 1e3   //us微秒
+	fmt.Printf("%v us, 'RunUsage 3 run.go'\n", timeUnixus)
 	return `run [flags] <container id> - create and run a secure container.
 `
 }
 
 // SetFlags implements subcommands.Command.SetFlags.
 func (r *Run) SetFlags(f *flag.FlagSet) {
+	timeUnixus:=time.Now().UnixNano() / 1e3   //us微秒
+	fmt.Printf("%v us, 'RunSetFlags 4 run.go'\n", timeUnixus)
 	f.BoolVar(&r.detach, "detach", false, "detach from the container's process")
 	r.Create.SetFlags(f)
 }
 
 // Execute implements subcommands.Command.Execute.
 func (r *Run) Execute(_ context.Context, f *flag.FlagSet, args ...interface{}) subcommands.ExitStatus {
+	timeUnixus:=time.Now().UnixNano() / 1e3   //us微秒
+	fmt.Printf("%v us, 'RunExecute 5 run.go'\n", timeUnixus)
 	if f.NArg() != 1 {
 		f.Usage()
 		return subcommands.ExitUsageError

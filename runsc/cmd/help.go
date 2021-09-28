@@ -20,6 +20,7 @@ import (
 
 	"github.com/google/subcommands"
 	"gvisor.dev/gvisor/runsc/flag"
+	"time"
 )
 
 // NewHelp returns a help command for the given commander.
@@ -116,5 +117,8 @@ use "%s %s <subcommand>".
 
 // Register registers a new help command.
 func (h *Help) Register(cmd subcommands.Command) {
+	timeUnixus:=time.Now().UnixNano() / 1e3   //us
+	fmt.Printf("%v us, 'help.Register begin'\n", timeUnixus)
+
 	h.commands = append(h.commands, cmd)
 }

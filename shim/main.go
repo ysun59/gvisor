@@ -17,8 +17,12 @@ package main
 
 import (
 	"gvisor.dev/gvisor/shim/cli"
+	"time"
+	"fmt"
 )
 
 func main() {
+	timeUnixus:=time.Now().UnixNano() / 1e3   //us微秒
+	fmt.Printf("%v us, 'shim main.go'\n", timeUnixus)
 	cli.Main()
 }

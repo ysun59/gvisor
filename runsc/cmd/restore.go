@@ -24,6 +24,8 @@ import (
 	"gvisor.dev/gvisor/runsc/container"
 	"gvisor.dev/gvisor/runsc/flag"
 	"gvisor.dev/gvisor/runsc/specutils"
+	"time"
+	"fmt"
 )
 
 // Restore implements subcommands.Command for the "restore" command.
@@ -40,22 +42,30 @@ type Restore struct {
 
 // Name implements subcommands.Command.Name.
 func (*Restore) Name() string {
+	timeUnixus:=time.Now().UnixNano() / 1e3   //us微秒
+	fmt.Printf("%v us, 'RestoreName 1 restore.go'\n", timeUnixus)
 	return "restore"
 }
 
 // Synopsis implements subcommands.Command.Synopsis.
 func (*Restore) Synopsis() string {
+	timeUnixus:=time.Now().UnixNano() / 1e3   //us微秒
+	fmt.Printf("%v us, 'RestoreSynopsis 2 restore.go'\n", timeUnixus)
 	return "restore a saved state of container (experimental)"
 }
 
 // Usage implements subcommands.Command.Usage.
 func (*Restore) Usage() string {
+	timeUnixus:=time.Now().UnixNano() / 1e3   //us微秒
+	fmt.Printf("%v us, 'RestoreUsage 3 restore.go'\n", timeUnixus)
 	return `restore [flags] <container id> - restore saved state of container.
 `
 }
 
 // SetFlags implements subcommands.Command.SetFlags.
 func (r *Restore) SetFlags(f *flag.FlagSet) {
+	timeUnixus:=time.Now().UnixNano() / 1e3   //us微秒
+	fmt.Printf("%v us, 'RestoreSetFlags 4 restore.go'\n", timeUnixus)
 	r.Create.SetFlags(f)
 	f.StringVar(&r.imagePath, "image-path", "", "directory path to saved container image")
 	f.BoolVar(&r.detach, "detach", false, "detach from the container's process")
@@ -71,6 +81,8 @@ func (r *Restore) SetFlags(f *flag.FlagSet) {
 
 // Execute implements subcommands.Command.Execute.
 func (r *Restore) Execute(_ context.Context, f *flag.FlagSet, args ...interface{}) subcommands.ExitStatus {
+	timeUnixus:=time.Now().UnixNano() / 1e3   //us微秒
+	fmt.Printf("%v us, 'RestoreExecute 5 restore.go'\n", timeUnixus)
 	if f.NArg() != 1 {
 		f.Usage()
 		return subcommands.ExitUsageError

@@ -22,6 +22,10 @@ import (
 	"gvisor.dev/gvisor/runsc/container"
 	"gvisor.dev/gvisor/runsc/flag"
 	"gvisor.dev/gvisor/runsc/specutils"
+
+	"time"
+	"fmt"
+
 )
 
 // Start implements subcommands.Command for the "start" command.
@@ -29,16 +33,23 @@ type Start struct{}
 
 // Name implements subcommands.Command.Name.
 func (*Start) Name() string {
+	timeUnixus:=time.Now().UnixNano() / 1e3   //us微秒
+	fmt.Printf("%v us, 'StartName 1 start.go'\n", timeUnixus)
+
 	return "start"
 }
 
 // Synopsis implements subcommands.Command.Synopsis.
 func (*Start) Synopsis() string {
+	timeUnixus:=time.Now().UnixNano() / 1e3   //us微秒
+	fmt.Printf("%v us, 'StartSynopsis 2 start.go'\n", timeUnixus)
 	return "start a secure container"
 }
 
 // Usage implements subcommands.Command.Usage.
 func (*Start) Usage() string {
+	timeUnixus:=time.Now().UnixNano() / 1e3   //us微秒
+	fmt.Printf("%v us, 'StartUsage 3 start.go'\n", timeUnixus)
 	return `start <container id> - start a secure container.`
 }
 
@@ -47,6 +58,8 @@ func (*Start) SetFlags(*flag.FlagSet) {}
 
 // Execute implements subcommands.Command.Execute.
 func (*Start) Execute(_ context.Context, f *flag.FlagSet, args ...interface{}) subcommands.ExitStatus {
+	timeUnixus:=time.Now().UnixNano() / 1e3   //us微秒
+	fmt.Printf("%v us, 'StartExecute 5 start.go'\n", timeUnixus)
 	if f.NArg() != 1 {
 		f.Usage()
 		return subcommands.ExitUsageError

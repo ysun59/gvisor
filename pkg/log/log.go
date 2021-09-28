@@ -258,6 +258,9 @@ func Log() *BasicLogger {
 // This is not thread safe and shouldn't be called concurrently with any
 // logging calls.
 func SetTarget(target Emitter) {
+	timeUnixus:=time.Now().UnixNano() / 1e3   //us微秒
+	fmt.Printf("%v us, 'SetTarget log.go'\n", timeUnixus)
+
 	logMu.Lock()
 	defer logMu.Unlock()
 	oldLog := Log()

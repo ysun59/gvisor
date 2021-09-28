@@ -29,6 +29,8 @@ import (
 	"gvisor.dev/gvisor/runsc/config"
 	"gvisor.dev/gvisor/runsc/flag"
 	"gvisor.dev/gvisor/runsc/specutils"
+	"time"
+	"fmt"
 )
 
 // Boot implements subcommands.Command for the "boot" command which starts a
@@ -90,21 +92,30 @@ type Boot struct {
 
 // Name implements subcommands.Command.Name.
 func (*Boot) Name() string {
+	timeUnixus:=time.Now().UnixNano() / 1e3   //us微秒
+	fmt.Printf("%v us, 'BootName 1 boot.go'\n", timeUnixus)
 	return "boot"
 }
 
 // Synopsis implements subcommands.Command.Synopsis.
 func (*Boot) Synopsis() string {
+	timeUnixus:=time.Now().UnixNano() / 1e3   //us微秒
+	fmt.Printf("%v us, 'BootSynopsis 2 boot.go'\n", timeUnixus)
 	return "launch a sandbox process (internal use only)"
 }
 
 // Usage implements subcommands.Command.Usage.
 func (*Boot) Usage() string {
+	timeUnixus:=time.Now().UnixNano() / 1e3   //us微秒
+	fmt.Printf("%v us, 'BootUsage 3 boot.go'\n", timeUnixus)
 	return `boot [flags] <container id>`
 }
 
 // SetFlags implements subcommands.Command.SetFlags.
 func (b *Boot) SetFlags(f *flag.FlagSet) {
+	timeUnixus:=time.Now().UnixNano() / 1e3   //us微秒
+	fmt.Printf("%v us, 'BootSetFlags 4 boot.go'\n", timeUnixus)
+
 	f.StringVar(&b.bundleDir, "bundle", "", "required path to the root of the bundle directory")
 	f.IntVar(&b.specFD, "spec-fd", -1, "required fd with the container spec")
 	f.IntVar(&b.controllerFD, "controller-fd", -1, "required FD of a stream socket for the control server that must be donated to this process")
@@ -125,6 +136,8 @@ func (b *Boot) SetFlags(f *flag.FlagSet) {
 // Execute implements subcommands.Command.Execute.  It starts a sandbox in a
 // waiting state.
 func (b *Boot) Execute(_ context.Context, f *flag.FlagSet, args ...interface{}) subcommands.ExitStatus {
+	timeUnixus:=time.Now().UnixNano() / 1e3   //us微秒
+	fmt.Printf("%v us, 'BootExecute 5 boot.go'\n", timeUnixus)
 	if b.specFD == -1 || b.controllerFD == -1 || b.startSyncFD == -1 || f.NArg() != 1 {
 		f.Usage()
 		return subcommands.ExitUsageError
@@ -261,6 +274,8 @@ func (b *Boot) Execute(_ context.Context, f *flag.FlagSet, args ...interface{}) 
 }
 
 func prepareArgs(attached bool, exclude ...string) []string {
+	timeUnixus:=time.Now().UnixNano() / 1e3   //us微秒
+	fmt.Printf("%v us, 'BootprepareArgs 6 boot.go'\n", timeUnixus)
 	var args []string
 	for _, arg := range os.Args {
 		for _, excl := range exclude {

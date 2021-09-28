@@ -42,6 +42,9 @@ import (
 // executeHooksBestEffort executes hooks and logs warning in case they fail.
 // Runs all hooks, always.
 func executeHooksBestEffort(hooks []specs.Hook, s specs.State) {
+	timeUnixus:=time.Now().UnixNano() / 1e3   //us微秒
+	fmt.Printf("%v us, 'executeHooksBestEffort hook.go'\n", timeUnixus)
+
 	for _, h := range hooks {
 		if err := executeHook(h, s); err != nil {
 			log.Warningf("Failure to execute hook %+v, err: %v", h, err)
@@ -51,6 +54,9 @@ func executeHooksBestEffort(hooks []specs.Hook, s specs.State) {
 
 // executeHooks executes hooks until the first one fails or they all execute.
 func executeHooks(hooks []specs.Hook, s specs.State) error {
+	timeUnixus:=time.Now().UnixNano() / 1e3   //us微秒
+	fmt.Printf("%v us, 'executeHooks hook.go'\n", timeUnixus)
+
 	for _, h := range hooks {
 		if err := executeHook(h, s); err != nil {
 			return err
@@ -60,6 +66,9 @@ func executeHooks(hooks []specs.Hook, s specs.State) error {
 }
 
 func executeHook(h specs.Hook, s specs.State) error {
+	timeUnixus:=time.Now().UnixNano() / 1e3   //us微秒
+	fmt.Printf("%v us, 'executeHook hook.go'\n", timeUnixus)
+
 	log.Debugf("Executing hook %+v, state: %+v", h, s)
 
 	if strings.TrimSpace(h.Path) == "" {

@@ -22,6 +22,8 @@ import (
 	"gvisor.dev/gvisor/runsc/container"
 	"gvisor.dev/gvisor/runsc/flag"
 	"gvisor.dev/gvisor/runsc/specutils"
+	"time"
+	"fmt"
 )
 
 // Create implements subcommands.Command for the "create" command.
@@ -51,22 +53,30 @@ type Create struct {
 
 // Name implements subcommands.Command.Name.
 func (*Create) Name() string {
+	timeUnixus:=time.Now().UnixNano() / 1e3   //us微秒
+	fmt.Printf("%v us, 'CreateName 1 create.go'\n", timeUnixus)
 	return "create"
 }
 
 // Synopsis implements subcommands.Command.Synopsis.
 func (*Create) Synopsis() string {
+	timeUnixus:=time.Now().UnixNano() / 1e3   //us微秒
+	fmt.Printf("%v us, 'CreateSynopsis 2 create.go'\n", timeUnixus)
 	return "create a secure container"
 }
 
 // Usage implements subcommands.Command.Usage.
 func (*Create) Usage() string {
+	timeUnixus:=time.Now().UnixNano() / 1e3   //us微秒
+	fmt.Printf("%v us, 'CreateUsage 3 create.go'\n", timeUnixus)
 	return `create [flags] <container id> - create a secure container
 `
 }
 
 // SetFlags implements subcommands.Command.SetFlags.
 func (c *Create) SetFlags(f *flag.FlagSet) {
+	timeUnixus:=time.Now().UnixNano() / 1e3   //us微秒
+	fmt.Printf("%v us, 'CreateSetFlags 4 create.go'\n", timeUnixus)
 	f.StringVar(&c.bundleDir, "bundle", "", "path to the root of the bundle directory, defaults to the current directory")
 	f.StringVar(&c.consoleSocket, "console-socket", "", "path to an AF_UNIX socket which will receive a file descriptor referencing the master end of the console's pseudoterminal")
 	f.StringVar(&c.pidFile, "pid-file", "", "filename that the container pid will be written to")
@@ -75,6 +85,8 @@ func (c *Create) SetFlags(f *flag.FlagSet) {
 
 // Execute implements subcommands.Command.Execute.
 func (c *Create) Execute(_ context.Context, f *flag.FlagSet, args ...interface{}) subcommands.ExitStatus {
+	timeUnixus:=time.Now().UnixNano() / 1e3   //us微秒
+	fmt.Printf("%v us, 'Create Execute 5 create.go'\n", timeUnixus)
 	if f.NArg() != 1 {
 		f.Usage()
 		return subcommands.ExitUsageError

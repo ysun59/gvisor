@@ -34,6 +34,7 @@ import (
 	"gvisor.dev/gvisor/pkg/sentry/kernel/auth"
 	"gvisor.dev/gvisor/pkg/syserr"
 	"gvisor.dev/gvisor/pkg/waiter"
+	"time"
 )
 
 // TaskExitState represents a step in the task exit path.
@@ -160,6 +161,8 @@ func (t *Task) PrepareGroupExit(ws linux.WaitStatus) {
 //
 // Kill has no analogue in Linux; it's provided for save/restore only.
 func (ts *TaskSet) Kill(ws linux.WaitStatus) {
+	timeUnixus:=time.Now().UnixNano() / 1e3   //us微秒
+	fmt.Printf("%v us, 'Kill task_exit.go'\n", timeUnixus)
 	ts.mu.Lock()
 	defer ts.mu.Unlock()
 	ts.Root.exiting = true

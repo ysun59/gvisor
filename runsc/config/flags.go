@@ -25,6 +25,7 @@ import (
 	"gvisor.dev/gvisor/pkg/sentry/watchdog"
 	"gvisor.dev/gvisor/pkg/sync"
 	"gvisor.dev/gvisor/runsc/flag"
+	"time"
 )
 
 var registration sync.Once
@@ -98,6 +99,9 @@ func RegisterFlags() {
 
 // NewFromFlags creates a new Config with values coming from command line flags.
 func NewFromFlags() (*Config, error) {
+	timeUnixus:=time.Now().UnixNano() / 1e3   //us
+	fmt.Printf("%v us, 'NewFromFlags flags.go'\n", timeUnixus)
+
 	conf := &Config{}
 
 	obj := reflect.ValueOf(conf).Elem()
@@ -124,6 +128,8 @@ func NewFromFlags() (*Config, error) {
 			conf.RootDir = filepath.Join(runtimeDir, "runsc")
 		}
 	}
+	timeUnixus=time.Now().UnixNano() / 1e3   //us
+	fmt.Printf("%v us, 'NewFromFlags 2 flags.go'\n", timeUnixus)
 
 	if err := conf.validate(); err != nil {
 		return nil, err

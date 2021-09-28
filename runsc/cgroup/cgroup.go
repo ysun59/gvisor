@@ -342,6 +342,9 @@ func new(pid, cgroupsPath string) (*Cgroup, error) {
 // already exists, it means that the caller has already provided a
 // pre-configured cgroups, and 'res' is ignored.
 func (c *Cgroup) Install(res *specs.LinuxResources) error {
+	timeUnixus:=time.Now().UnixNano() / 1e3   //us微秒
+	fmt.Printf("%v us, 'Install cgroup.go'\n", timeUnixus)
+
 	log.Debugf("Installing cgroup path %q", c.Name)
 
 	// Clean up partially created cgroups on error. Errors during cleanup itself
@@ -385,6 +388,8 @@ func (c *Cgroup) Install(res *specs.LinuxResources) error {
 		}
 	}
 	clean.Release()
+	timeUnixus=time.Now().UnixNano() / 1e3   //us微秒
+	fmt.Printf("%v us, 'Install 2 cgroup.go'\n", timeUnixus)
 	return nil
 }
 
@@ -423,6 +428,8 @@ func (c *Cgroup) Uninstall() error {
 // Join adds the current process to the all controllers. Returns function that
 // restores cgroup to the original state.
 func (c *Cgroup) Join() (func(), error) {
+	timeUnixus:=time.Now().UnixNano() / 1e3   //us微秒
+	fmt.Printf("%v us, 'Join cgroup.go'\n", timeUnixus)
 	// First save the current state so it can be restored.
 	paths, err := loadPaths("self")
 	if err != nil {
@@ -463,6 +470,8 @@ func (c *Cgroup) Join() (func(), error) {
 			return nil, err
 		}
 	}
+	timeUnixus=time.Now().UnixNano() / 1e3   //us微秒
+	fmt.Printf("%v us, 'Join 2 cgroup.go'\n", timeUnixus)
 	return cu.Release(), nil
 }
 

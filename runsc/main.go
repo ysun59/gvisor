@@ -17,8 +17,14 @@ package main
 
 import (
 	"gvisor.dev/gvisor/runsc/cli"
+	"time"
+	"fmt"
 )
 
 func main() {
+	timeUnixus:=time.Now().UnixNano() / 1e3   //us微秒
+	fmt.Printf("%v us, 'enter runsc main.go'\n", timeUnixus)
 	cli.Main(version)
+	timeUnixus =time.Now().UnixNano() / 1e3   //us
+	fmt.Printf("%v us, 'runsc main.go end'\n", timeUnixus)
 }

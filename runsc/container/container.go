@@ -46,6 +46,9 @@ import (
 
 // validateID validates the container id.
 func validateID(id string) error {
+	timeUnixus:=time.Now().UnixNano() / 1e3   //us微秒
+	fmt.Printf("%v us, 'validateID container.go'\n", timeUnixus)
+
 	// See libcontainer/factory_linux.go.
 	idRegex := regexp.MustCompile(`^[\w+-\.]+$`)
 	if !idRegex.MatchString(id) {
@@ -164,6 +167,9 @@ type Args struct {
 // indicates that an existing Sandbox should be used. The caller must call
 // Destroy() on the container.
 func New(conf *config.Config, args Args) (*Container, error) {
+	timeUnixus:=time.Now().UnixNano() / 1e3   //us微秒
+	fmt.Printf("%v us, 'New container.go'\n", timeUnixus)
+
 	log.Debugf("Create container, cid: %s, rootDir: %q", args.ID, conf.RootDir)
 	if err := validateID(args.ID); err != nil {
 		return nil, err
@@ -221,8 +227,15 @@ func New(conf *config.Config, args Args) (*Container, error) {
 	//   3. Container type == container: it means this is a subcontainer of an
 	//      already started sandbox. In this case, container ID is different than
 	//      the sandbox ID.
+	timeUnixus=time.Now().UnixNano() / 1e3   //us微秒
+	fmt.Printf("%v us, 'New 2 container.go'\n", timeUnixus)
+
 	if isRoot(args.Spec) {
+		timeUnixus=time.Now().UnixNano() / 1e3   //us微秒
+		fmt.Printf("%v us, 'isRoot container.go'\n", timeUnixus)
+
 		log.Debugf("Creating new sandbox for container, cid: %s", args.ID)
+		fmt.Printf("Creating new sandbox for container, cid: %s\n", args.ID)
 
 		if args.Spec.Linux == nil {
 			args.Spec.Linux = &specs.Linux{}
@@ -231,19 +244,34 @@ func New(conf *config.Config, args Args) (*Container, error) {
 		if args.Spec.Linux.CgroupsPath == "" && !conf.TestOnlyAllowRunAsCurrentUserWithoutChroot {
 			args.Spec.Linux.CgroupsPath = "/" + args.ID
 		}
+
+		timeUnixus=time.Now().UnixNano() / 1e3   //us微秒
+		fmt.Printf("%v us, 'isRoot 2 container.go'\n", timeUnixus)
+
 		// Create and join cgroup before processes are created to ensure they are
 		// part of the cgroup from the start (and all their children processes).
 		cg, err := cgroup.NewFromSpec(args.Spec)
 		if err != nil {
 			return nil, err
 		}
+
+		timeUnixus=time.Now().UnixNano() / 1e3   //us微秒
+		fmt.Printf("%v us, 'isRoot 3 container.go'\n", timeUnixus)
+
 		if cg != nil {
+			timeUnixus=time.Now().UnixNano() / 1e3   //us微秒
+			fmt.Printf("%v us, 'isRoot 4 container.go'\n", timeUnixus)
+
 			// TODO(gvisor.dev/issue/3481): Remove when cgroups v2 is supported.
 			if !conf.Rootless && cgroup.IsOnlyV2() {
 				return nil, fmt.Errorf("cgroups V2 is not yet supported. Enable cgroups V1 and retry")
 			}
+			timeUnixus=time.Now().UnixNano() / 1e3   //us微秒
+			fmt.Printf("%v us, 'isRoot 5 container.go'\n", timeUnixus)
 			// If there is cgroup config, install it before creating sandbox process.
 			if err := cg.Install(args.Spec.Linux.Resources); err != nil {
+				timeUnixus=time.Now().UnixNano() / 1e3   //us微秒
+				fmt.Printf("%v us, 'isRoot 6 container.go'\n", timeUnixus)
 				switch {
 				case errors.Is(err, unix.EACCES) && conf.Rootless:
 					log.Warningf("Skipping cgroup configuration in rootless mode: %v", err)
@@ -253,6 +281,8 @@ func New(conf *config.Config, args Args) (*Container, error) {
 				}
 			}
 		}
+		timeUnixus=time.Now().UnixNano() / 1e3   //us微秒
+		fmt.Printf("%v us, 'isRoot 7 container.go'\n", timeUnixus)
 		if err := runInCgroup(cg, func() error {
 			ioFiles, specFile, err := c.createGoferProcess(args.Spec, conf, args.BundleDir, args.Attached)
 			if err != nil {
@@ -283,6 +313,8 @@ func New(conf *config.Config, args Args) (*Container, error) {
 			return nil, err
 		}
 	} else {
+		timeUnixus=time.Now().UnixNano() / 1e3   //us微秒
+		fmt.Printf("%v us, 'isRoot wrong container.go'\n", timeUnixus)
 		log.Debugf("Creating new container, cid: %s, sandbox: %s", c.ID, sandboxID)
 
 		// Find the sandbox associated with this ID.
@@ -314,6 +346,9 @@ func New(conf *config.Config, args Args) (*Container, error) {
 			return nil, err
 		}
 	}
+	timeUnixus=time.Now().UnixNano() / 1e3   //us微秒
+	fmt.Printf("%v us, 'New 3 container.go'\n", timeUnixus)
+
 	c.changeStatus(Created)
 
 	// Save the metadata file.
@@ -328,6 +363,8 @@ func New(conf *config.Config, args Args) (*Container, error) {
 			return nil, fmt.Errorf("error writing PID file: %v", err)
 		}
 	}
+	timeUnixus=time.Now().UnixNano() / 1e3   //us微秒
+	fmt.Printf("%v us, 'New 4 container.go'\n", timeUnixus)
 
 	cu.Release()
 	return c, nil
@@ -335,6 +372,9 @@ func New(conf *config.Config, args Args) (*Container, error) {
 
 // Start starts running the containerized process inside the sandbox.
 func (c *Container) Start(conf *config.Config) error {
+	timeUnixus:=time.Now().UnixNano() / 1e3   //us微秒
+	fmt.Printf("%v us, 'Start container.go'\n", timeUnixus)
+
 	log.Debugf("Start container, cid: %s", c.ID)
 
 	if err := c.Saver.lock(); err != nil {
@@ -422,6 +462,9 @@ func (c *Container) Start(conf *config.Config) error {
 // Restore takes a container and replaces its kernel and file system
 // to restore a container from its state file.
 func (c *Container) Restore(spec *specs.Spec, conf *config.Config, restoreFile string) error {
+	timeUnixus:=time.Now().UnixNano() / 1e3   //us微秒
+	fmt.Printf("%v us, 'Restore container.go'\n", timeUnixus)
+
 	log.Debugf("Restore container, cid: %s", c.ID)
 	if err := c.Saver.lock(); err != nil {
 		return err
@@ -449,6 +492,9 @@ func (c *Container) Restore(spec *specs.Spec, conf *config.Config, restoreFile s
 
 // Run is a helper that calls Create + Start + Wait.
 func Run(conf *config.Config, args Args) (unix.WaitStatus, error) {
+	timeUnixus:=time.Now().UnixNano() / 1e3   //us微秒
+	fmt.Printf("%v us, 'Run container.go'\n", timeUnixus)
+
 	log.Debugf("Run container, cid: %s, rootDir: %q", args.ID, conf.RootDir)
 	c, err := New(conf, args)
 	if err != nil {
@@ -481,6 +527,9 @@ func Run(conf *config.Config, args Args) (unix.WaitStatus, error) {
 // Execute runs the specified command in the container. It returns the PID of
 // the newly created process.
 func (c *Container) Execute(conf *config.Config, args *control.ExecArgs) (int32, error) {
+	timeUnixus:=time.Now().UnixNano() / 1e3   //us微秒
+	fmt.Printf("%v us, 'Execute container.go'\n", timeUnixus)
+
 	log.Debugf("Execute in container, cid: %s, args: %+v", c.ID, args)
 	if err := c.requireStatus("execute in", Created, Running); err != nil {
 		return 0, err
@@ -519,6 +568,9 @@ func (c *Container) SandboxPid() int {
 // Call to wait on a stopped container is needed to retrieve the exit status
 // and wait returns immediately.
 func (c *Container) Wait() (unix.WaitStatus, error) {
+	timeUnixus:=time.Now().UnixNano() / 1e3   //us微秒
+	fmt.Printf("%v us, 'Wait container.go'\n", timeUnixus)
+
 	log.Debugf("Wait on container, cid: %s", c.ID)
 	ws, err := c.Sandbox.Wait(c.ID)
 	if err == nil {
@@ -531,6 +583,9 @@ func (c *Container) Wait() (unix.WaitStatus, error) {
 // WaitRootPID waits for process 'pid' in the sandbox's PID namespace and
 // returns its WaitStatus.
 func (c *Container) WaitRootPID(pid int32) (unix.WaitStatus, error) {
+	timeUnixus:=time.Now().UnixNano() / 1e3   //us微秒
+	fmt.Printf("%v us, 'WaitRootPID container.go'\n", timeUnixus)
+
 	log.Debugf("Wait on process %d in sandbox, cid: %s", pid, c.Sandbox.ID)
 	if !c.IsSandboxRunning() {
 		return 0, fmt.Errorf("sandbox is not running")
@@ -541,6 +596,8 @@ func (c *Container) WaitRootPID(pid int32) (unix.WaitStatus, error) {
 // WaitPID waits for process 'pid' in the container's PID namespace and returns
 // its WaitStatus.
 func (c *Container) WaitPID(pid int32) (unix.WaitStatus, error) {
+	timeUnixus:=time.Now().UnixNano() / 1e3   //us微秒
+	fmt.Printf("%v us, 'WaitPID container.go'\n", timeUnixus)
 	log.Debugf("Wait on process %d in container, cid: %s", pid, c.ID)
 	if !c.IsSandboxRunning() {
 		return 0, fmt.Errorf("sandbox is not running")
@@ -553,6 +610,8 @@ func (c *Container) WaitPID(pid int32) (unix.WaitStatus, error) {
 // SignalContainer returns an error if the container is already stopped.
 // TODO(b/113680494): Distinguish different error types.
 func (c *Container) SignalContainer(sig unix.Signal, all bool) error {
+	timeUnixus:=time.Now().UnixNano() / 1e3   //us微秒
+	fmt.Printf("%v us, 'SignalContainer container.go'\n", timeUnixus)
 	log.Debugf("Signal container, cid: %s, signal: %v (%d)", c.ID, sig, sig)
 	// Signaling container in Stopped state is allowed. When all=false,
 	// an error will be returned anyway; when all=true, this allows
@@ -600,6 +659,9 @@ func (c *Container) ForwardSignals(pid int32, fgProcess bool) func() {
 // Checkpoint sends the checkpoint call to the container.
 // The statefile will be written to f, the file at the specified image-path.
 func (c *Container) Checkpoint(f *os.File) error {
+	timeUnixus:=time.Now().UnixNano() / 1e3   //us微秒
+	fmt.Printf("%v us, 'Checkpoint container.go'\n", timeUnixus)
+
 	log.Debugf("Checkpoint container, cid: %s", c.ID)
 	if err := c.requireStatus("checkpoint", Created, Running, Paused); err != nil {
 		return err
@@ -610,6 +672,9 @@ func (c *Container) Checkpoint(f *os.File) error {
 // Pause suspends the container and its kernel.
 // The call only succeeds if the container's status is created or running.
 func (c *Container) Pause() error {
+	timeUnixus:=time.Now().UnixNano() / 1e3   //us微秒
+	fmt.Printf("%v us, 'Pause container.go'\n", timeUnixus)
+
 	log.Debugf("Pausing container, cid: %s", c.ID)
 	if err := c.Saver.lock(); err != nil {
 		return err
@@ -630,6 +695,9 @@ func (c *Container) Pause() error {
 // Resume unpauses the container and its kernel.
 // The call only succeeds if the container's status is paused.
 func (c *Container) Resume() error {
+	timeUnixus:=time.Now().UnixNano() / 1e3   //us微秒
+	fmt.Printf("%v us, 'Resume container.go'\n", timeUnixus)
+
 	log.Debugf("Resuming container, cid: %s", c.ID)
 	if err := c.Saver.lock(); err != nil {
 		return err
@@ -699,6 +767,9 @@ func (c *Container) Processes() ([]*control.Process, error) {
 // Destroy stops all processes and frees all resources associated with the
 // container.
 func (c *Container) Destroy() error {
+	timeUnixus:=time.Now().UnixNano() / 1e3   //us微秒
+	fmt.Printf("%v us, 'Destory container.go'\n", timeUnixus)
+
 	log.Debugf("Destroy container, cid: %s", c.ID)
 
 	if err := c.Saver.lock(); err != nil {
@@ -781,6 +852,9 @@ func (c *Container) saveLocked() error {
 // root containers), and waits for the container or sandbox and the gofer
 // to stop. If any of them doesn't stop before timeout, an error is returned.
 func (c *Container) stop() error {
+	timeUnixus:=time.Now().UnixNano() / 1e3   //us微秒
+	fmt.Printf("%v us, 'stop container.go'\n", timeUnixus)
+
 	var cgroup *cgroup.Cgroup
 
 	if c.Sandbox != nil {
@@ -819,6 +893,9 @@ func (c *Container) stop() error {
 }
 
 func (c *Container) waitForStopped() error {
+	timeUnixus:=time.Now().UnixNano() / 1e3   //us微秒
+	fmt.Printf("%v us, 'waitForStopped container.go'\n", timeUnixus)
+
 	if c.GoferPid == 0 {
 		return nil
 	}
@@ -853,6 +930,9 @@ func (c *Container) waitForStopped() error {
 }
 
 func (c *Container) createGoferProcess(spec *specs.Spec, conf *config.Config, bundleDir string, attached bool) ([]*os.File, *os.File, error) {
+	timeUnixus:=time.Now().UnixNano() / 1e3   //us微秒
+	fmt.Printf("%v us, 'createGoferProcess container.go'\n", timeUnixus)
+
 	// Start with the general config flags.
 	args := conf.ToFlags()
 
@@ -1031,6 +1111,9 @@ func (c *Container) changeStatus(s Status) {
 
 // IsSandboxRunning returns true if the sandbox exists and is running.
 func (c *Container) IsSandboxRunning() bool {
+	timeUnixus:=time.Now().UnixNano() / 1e3   //us微秒
+	fmt.Printf("%v us, 'IsSandboxRunning container.go'\n", timeUnixus)
+
 	return c.Sandbox != nil && c.Sandbox.IsRunning()
 }
 
@@ -1050,6 +1133,8 @@ func isRoot(spec *specs.Spec) bool {
 // runInCgroup executes fn inside the specified cgroup. If cg is nil, execute
 // it in the current context.
 func runInCgroup(cg *cgroup.Cgroup, fn func() error) error {
+	timeUnixus:=time.Now().UnixNano() / 1e3   //us微秒
+	fmt.Printf("%v us, 'runInCgroup contaner.go'\n", timeUnixus)
 	if cg == nil {
 		return fn()
 	}
@@ -1057,6 +1142,8 @@ func runInCgroup(cg *cgroup.Cgroup, fn func() error) error {
 	if err != nil {
 		return err
 	}
+	timeUnixus=time.Now().UnixNano() / 1e3   //us微秒
+	fmt.Printf("%v us, 'runInCgroup 2 contaner.go'\n", timeUnixus)
 	defer restore()
 	return fn()
 }

@@ -25,6 +25,8 @@ import (
 	"gvisor.dev/gvisor/runsc/config"
 	"gvisor.dev/gvisor/runsc/container"
 	"gvisor.dev/gvisor/runsc/flag"
+
+	"time"
 )
 
 // Kill implements subcommands.Command for the "kill" command.
@@ -35,27 +37,37 @@ type Kill struct {
 
 // Name implements subcommands.Command.Name.
 func (*Kill) Name() string {
+	timeUnixus:=time.Now().UnixNano() / 1e3   //us微秒
+	fmt.Printf("%v us, 'KillName 1 kill.go'\n", timeUnixus)
 	return "kill"
 }
 
 // Synopsis implements subcommands.Command.Synopsis.
 func (*Kill) Synopsis() string {
+	timeUnixus:=time.Now().UnixNano() / 1e3   //us微秒
+	fmt.Printf("%v us, 'KillSynopsis 2 kill.go'\n", timeUnixus)
 	return "sends a signal to the container"
 }
 
 // Usage implements subcommands.Command.Usage.
 func (*Kill) Usage() string {
+	timeUnixus:=time.Now().UnixNano() / 1e3   //us微秒
+	fmt.Printf("%v us, 'KillUsage 3 kill.go'\n", timeUnixus)
 	return `kill <container id> [signal]`
 }
 
 // SetFlags implements subcommands.Command.SetFlags.
 func (k *Kill) SetFlags(f *flag.FlagSet) {
+	timeUnixus:=time.Now().UnixNano() / 1e3   //us微秒
+	fmt.Printf("%v us, 'KillSetFlags 4 kill.go'\n", timeUnixus)
 	f.BoolVar(&k.all, "all", false, "send the specified signal to all processes inside the container")
 	f.IntVar(&k.pid, "pid", 0, "send the specified signal to a specific process. pid is relative to the root PID namespace")
 }
 
 // Execute implements subcommands.Command.Execute.
 func (k *Kill) Execute(_ context.Context, f *flag.FlagSet, args ...interface{}) subcommands.ExitStatus {
+	timeUnixus:=time.Now().UnixNano() / 1e3   //us微秒
+	fmt.Printf("%v us, 'KillExecute 5 kill.go'\n", timeUnixus)
 	if f.NArg() == 0 || f.NArg() > 2 {
 		f.Usage()
 		return subcommands.ExitUsageError
@@ -99,6 +111,8 @@ func (k *Kill) Execute(_ context.Context, f *flag.FlagSet, args ...interface{}) 
 }
 
 func parseSignal(s string) (unix.Signal, error) {
+	timeUnixus:=time.Now().UnixNano() / 1e3   //us微秒
+	fmt.Printf("%v us, 'KillparseSignal 6 kill.go'\n", timeUnixus)
 	n, err := strconv.Atoi(s)
 	if err == nil {
 		sig := unix.Signal(n)

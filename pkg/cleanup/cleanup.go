@@ -24,6 +24,11 @@ package cleanup
 //   ...
 // 	 cu.Release() // on success, aborts closing the file.
 // 	 return f
+import (
+	"time"
+	"fmt"
+)
+
 type Cleanup struct {
 	cleaners []func()
 }
@@ -40,6 +45,9 @@ func (c *Cleanup) Add(f func()) {
 
 // Clean calls all cleanup functions in reverse order.
 func (c *Cleanup) Clean() {
+	timeUnixus:=time.Now().UnixNano() / 1e3   //us微秒
+	fmt.Printf("%v us, 'Clean cleanup.go'\n", timeUnixus)
+
 	clean(c.cleaners)
 	c.cleaners = nil
 }
@@ -48,13 +56,21 @@ func (c *Cleanup) Clean() {
 // called after this point. Returns a function that calls all registered
 // functions in case the caller has use for them.
 func (c *Cleanup) Release() func() {
+	timeUnixus:=time.Now().UnixNano() / 1e3   //us微秒
+	fmt.Printf("%v us, 'Release cleanup.go'\n", timeUnixus)
 	old := c.cleaners
 	c.cleaners = nil
+	timeUnixus=time.Now().UnixNano() / 1e3   //us微秒
+	fmt.Printf("%v us, 'Release 2 cleanup.go'\n", timeUnixus)
 	return func() { clean(old) }
 }
 
 func clean(cleaners []func()) {
+	timeUnixus:=time.Now().UnixNano() / 1e3   //us微秒
+	fmt.Printf("%v us, 'clean cleanup.go'\n", timeUnixus)
 	for i := len(cleaners) - 1; i >= 0; i-- {
 		cleaners[i]()
 	}
+	timeUnixus=time.Now().UnixNano() / 1e3   //us微秒
+	fmt.Printf("%v us, 'clean 2 cleanup.go'\n", timeUnixus)
 }
